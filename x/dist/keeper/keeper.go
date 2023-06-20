@@ -19,6 +19,8 @@ type Keeper struct {
 	stakingKeeper types.StakingKeeper
 	seqKeeper     types.SequencerKeeper
 
+	paramSpace paramtypes.Subspace
+
 	blockedAddrs     map[string]bool
 	feeCollectorName string
 }
@@ -30,12 +32,17 @@ func NewKeeper(
 	feeCollectorName string, blockedAddrs map[string]bool,
 ) Keeper {
 	k := distkeeper.NewKeeper(cdc, key, paramSpace, ak, bk, sk, feeCollectorName)
+	// set KeyTable if it has not already been set
+	if !paramSpace.HasKeyTable() {
+		paramSpace = paramSpace.WithKeyTable(types.ParamKeyTable())
+	}
 	return Keeper{
 		Keeper:           k,
 		authKeeper:       ak,
 		bankKeeper:       bk,
 		stakingKeeper:    sk,
 		seqKeeper:        seqk,
+		paramSpace:       paramSpace,
 		blockedAddrs:     blockedAddrs,
 		feeCollectorName: feeCollectorName,
 	}
