@@ -100,6 +100,30 @@ fi
 $EXECUTABLE keys add "$KEY_NAME_ROLLAPP" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
 $EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
 
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP1" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP1" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP2" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP2" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP3" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP3" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP4" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP4" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP5" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP5" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP6" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP6" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP7" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP7" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
+$EXECUTABLE keys add "$KEY_NAME_ROLLAPP8" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+$EXECUTABLE add-genesis-account "$KEY_NAME_ROLLAPP8" "$TOKEN_AMOUNT" --keyring-backend test --home "$ROLLAPP_CHAIN_DIR"
+
 #If using settlement layer, make sure the sequencer account is funded
 if [ "$SETTLEMENT_LAYER" = "dymension" ]; then
     #add account for sequencer on the hub

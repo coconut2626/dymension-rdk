@@ -4,6 +4,7 @@
 package app
 
 import (
+	"github.com/dymensionxyz/rollapp/x/rng"
 	"io"
 	"net/http"
 	"os"
@@ -72,6 +73,10 @@ import (
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
 
+	"github.com/cosmos/cosmos-sdk/x/group"
+	groupkeeper "github.com/cosmos/cosmos-sdk/x/group/keeper"
+	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
+
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
@@ -118,6 +123,19 @@ import (
 
 	distr "github.com/dymensionxyz/rollapp/x/dist"
 	distrkeeper "github.com/dymensionxyz/rollapp/x/dist/keeper"
+
+	classicdicemodule "github.com/dymensionxyz/rollapp/x/classicdice"
+	classicdicekeeper "github.com/dymensionxyz/rollapp/x/classicdice/keeper"
+	classicdicetypes "github.com/dymensionxyz/rollapp/x/classicdice/types"
+	cocomodule "github.com/dymensionxyz/rollapp/x/coco"
+	cocokeeper "github.com/dymensionxyz/rollapp/x/coco/keeper"
+	cocotypes "github.com/dymensionxyz/rollapp/x/coco/types"
+	investmentmodule "github.com/dymensionxyz/rollapp/x/investment"
+	investmentkeeper "github.com/dymensionxyz/rollapp/x/investment/keeper"
+	investmenttypes "github.com/dymensionxyz/rollapp/x/investment/types"
+	minipokermodule "github.com/dymensionxyz/rollapp/x/minipoker"
+	minipokerkeeper "github.com/dymensionxyz/rollapp/x/minipoker/keeper"
+	minipokertypes "github.com/dymensionxyz/rollapp/x/minipoker/types"
 )
 
 const (
@@ -135,7 +153,9 @@ var (
 		epochstypes.StoreKey,
 		feegrant.StoreKey,
 		ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
-		authzkeeper.StoreKey,
+		authzkeeper.StoreKey, group.StoreKey,
+		cocotypes.StoreKey, minipokertypes.StoreKey,
+		classicdicetypes.StoreKey, investmenttypes.StoreKey,
 	}
 )
 
@@ -181,9 +201,14 @@ var (
 		feegrantmodule.AppModuleBasic{},
 		upgrade.AppModuleBasic{},
 		authzmodule.AppModuleBasic{},
+		groupmodule.AppModuleBasic{},
 		ibc.AppModuleBasic{},
 		ibctransfer.AppModuleBasic{},
 		vesting.AppModuleBasic{},
+		cocomodule.AppModuleBasic{},
+		classicdicemodule.AppModuleBasic{},
+		minipokermodule.AppModuleBasic{},
+		investmentmodule.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -195,6 +220,11 @@ var (
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		cocotypes.ModuleName:           nil,
+		minipokertypes.ModuleName:      nil,
+		classicdicetypes.ModuleName:    nil,
+		investmenttypes.ModuleName:     nil,
+		cocotypes.JackpotAddress:       nil,
 	}
 )
 
@@ -246,12 +276,17 @@ type App struct {
 	IBCKeeper        *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	TransferKeeper   ibctransferkeeper.Keeper
 	FeeGrantKeeper   feegrantkeeper.Keeper
+	GroupKeeper      groupkeeper.Keeper
 
 	// make scoped keepers public for test purposes
 	ScopedIBCKeeper      capabilitykeeper.ScopedKeeper
 	ScopedTransferKeeper capabilitykeeper.ScopedKeeper
 
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
+	CocoKeeper        cocokeeper.Keeper
+	MiniPokerKeeper   minipokerkeeper.Keeper
+	ClassicDiceKeeper classicdicekeeper.Keeper
+	InvestmentKeeper  investmentkeeper.Keeper
 
 	// mm is the module manager
 	mm *module.Manager
@@ -261,6 +296,9 @@ type App struct {
 
 	// module configurator
 	configurator module.Configurator
+
+	// rng external
+	rng rng.Rng
 }
 
 // NewRollapp returns a reference to an initialized blockchain app
@@ -313,6 +351,7 @@ func NewRollapp(
 		tkeys:             tkeys,
 		memKeys:           memKeys,
 	}
+	app.rng = rng.NewRngProxy()
 
 	app.ParamsKeeper = initParamsKeeper(
 		appCodec,
@@ -340,7 +379,7 @@ func NewRollapp(
 		app.GetSubspace(authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
 		maccPerms,
-		sdk.Bech32PrefixAccAddr, //Bech32MainPrefix
+		sdk.Bech32PrefixAccAddr, // Bech32MainPrefix
 	)
 
 	app.AuthzKeeper = authzkeeper.NewKeeper(
@@ -408,8 +447,58 @@ func NewRollapp(
 		appCodec, keys[seqtypes.StoreKey], app.GetSubspace(seqtypes.ModuleName),
 	)
 
+	groupConfig := group.DefaultConfig()
+	/*
+		Example of setting group params:
+		groupConfig.MaxMetadataLen = 1000
+	*/
+	app.GroupKeeper = groupkeeper.NewKeeper(
+		keys[group.StoreKey],
+		appCodec,
+		app.MsgServiceRouter(),
+		app.AccountKeeper,
+		groupConfig,
+	)
+
 	app.IBCKeeper = ibckeeper.NewKeeperWithDymint(
 		appCodec, keys[ibchost.StoreKey], app.GetSubspace(ibchost.ModuleName), app.StakingKeeper, app.UpgradeKeeper, scopedIBCKeeper,
+	)
+
+	app.CocoKeeper = cocokeeper.NewKeeper(
+		appCodec,
+		keys[cocotypes.StoreKey],
+		keys[cocotypes.MemStoreKey],
+		app.GetSubspace(cocotypes.ModuleName),
+		app.rng,
+	)
+
+	app.MiniPokerKeeper = minipokerkeeper.NewKeeper(
+		appCodec,
+		keys[minipokertypes.StoreKey],
+		keys[minipokertypes.MemStoreKey],
+		app.GetSubspace(minipokertypes.ModuleName),
+		app.BankKeeper,
+		app.AccountKeeper,
+		app.CocoKeeper,
+	)
+
+	app.ClassicDiceKeeper = classicdicekeeper.NewKeeper(
+		appCodec,
+		keys[classicdicetypes.StoreKey],
+		keys[classicdicetypes.MemStoreKey],
+		app.GetSubspace(classicdicetypes.ModuleName),
+		app.BankKeeper,
+		app.AccountKeeper,
+		app.CocoKeeper,
+	)
+
+	app.InvestmentKeeper = investmentkeeper.NewKeeper(
+		appCodec,
+		keys[investmenttypes.StoreKey],
+		keys[investmenttypes.MemStoreKey],
+		app.GetSubspace(investmenttypes.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
 	)
 
 	// Register the proposal types
@@ -488,8 +577,13 @@ func NewRollapp(
 		epochs.NewAppModule(appCodec, app.EpochsKeeper),
 		params.NewAppModule(app.ParamsKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
+		groupmodule.NewAppModule(appCodec, app.GroupKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		ibc.NewAppModule(app.IBCKeeper),
 		ibctransfer.NewAppModule(app.TransferKeeper),
+		cocomodule.NewAppModule(appCodec, app.CocoKeeper, app.AccountKeeper, app.BankKeeper),
+		investmentmodule.NewAppModule(appCodec, app.InvestmentKeeper, app.AccountKeeper, app.BankKeeper),
+		minipokermodule.NewAppModule(appCodec, app.MiniPokerKeeper, app.AccountKeeper, app.BankKeeper),
+		classicdicemodule.NewAppModule(appCodec, app.ClassicDiceKeeper, app.AccountKeeper, app.BankKeeper),
 	}
 
 	app.mm = module.NewManager(modules...)
@@ -517,8 +611,12 @@ func NewRollapp(
 		genutiltypes.ModuleName,
 		epochstypes.ModuleName,
 		feegrant.ModuleName,
+		group.ModuleName,
 		paramstypes.ModuleName,
-		// this line is used by starport scaffolding # stargate/app/beginBlockers
+		cocotypes.ModuleName,
+		investmenttypes.ModuleName,
+		minipokertypes.ModuleName,
+		classicdicetypes.ModuleName,
 	}
 	app.mm.SetOrderBeginBlockers(beginBlockersList...)
 
@@ -536,12 +634,16 @@ func NewRollapp(
 		minttypes.ModuleName,
 		genutiltypes.ModuleName,
 		feegrant.ModuleName,
+		group.ModuleName,
 		epochstypes.ModuleName,
 		paramstypes.ModuleName,
 		upgradetypes.ModuleName,
 		ibchost.ModuleName,
 		ibctransfertypes.ModuleName,
-		// this line is used by starport scaffolding # stargate/app/endBlockers
+		cocotypes.ModuleName,
+		investmenttypes.ModuleName,
+		minipokertypes.ModuleName,
+		classicdicetypes.ModuleName,
 	}
 	app.mm.SetOrderEndBlockers(endBlockersList...)
 
@@ -567,10 +669,14 @@ func NewRollapp(
 		genutiltypes.ModuleName,
 		paramstypes.ModuleName,
 		epochstypes.ModuleName,
+		group.ModuleName,
 		upgradetypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		feegrant.ModuleName,
-		// this line is used by starport scaffolding # stargate/app/initGenesis
+		cocotypes.ModuleName,
+		investmenttypes.ModuleName,
+		minipokertypes.ModuleName,
+		classicdicetypes.ModuleName,
 	}
 	app.mm.SetOrderInitGenesis(initGenesisList...)
 
@@ -689,7 +795,7 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 		panic("Dymint have no sequencers defined on InitChain")
 	}
 
-	//Passing the dymint sequencers to the sequencer module from RequestInitChain
+	// Passing the dymint sequencers to the sequencer module from RequestInitChain
 	for _, val := range req.Validators {
 		tmkey, err := tmcrypto.PubKeyFromProto(val.PubKey)
 		if err != nil {
@@ -713,7 +819,7 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
 	res := app.mm.InitGenesis(ctx, app.appCodec, genesisState)
 
-	//Hack to avoid the baseApp validation
+	// Hack to avoid the baseApp validation
 	res.Validators = req.Validators
 	return res
 }
@@ -906,7 +1012,10 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(crisistypes.ModuleName)
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	paramsKeeper.Subspace(ibchost.ModuleName)
-	// this line is used by starport scaffolding # stargate/app/paramSubspace
+	paramsKeeper.Subspace(cocotypes.ModuleName)
+	paramsKeeper.Subspace(investmenttypes.ModuleName)
+	paramsKeeper.Subspace(minipokertypes.ModuleName)
+	paramsKeeper.Subspace(classicdicetypes.ModuleName)
 
 	return paramsKeeper
 }

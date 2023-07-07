@@ -5,6 +5,8 @@ go 1.19
 require (
 	cosmossdk.io/errors v1.0.0-beta.7
 	cosmossdk.io/math v1.0.0-rc.0
+	github.com/chehsunliu/poker v0.1.0
+	github.com/cosmos/cosmos-proto v1.0.0-beta.3
 	github.com/cosmos/cosmos-sdk v0.46.13
 	github.com/cosmos/ibc-go/v6 v6.1.1
 	github.com/dymensionxyz/dymint v0.5.0-rc1
@@ -71,7 +73,6 @@ require (
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
-	github.com/cosmos/cosmos-proto v1.0.0-beta.3 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
 	github.com/cosmos/gogoproto v1.4.8 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
@@ -295,6 +296,7 @@ require (
 
 replace (
 	github.com/centrifuge/go-substrate-rpc-client/v4 => github.com/availproject/go-substrate-rpc-client/v4 v4.0.12-avail-1.4.0-rc1-5e286e3
+	github.com/chehsunliu/poker => github.com/coconut2626/poker v0.1.0
 	github.com/confio/ics23/go => github.com/cosmos/cosmos-sdk/ics23/go v0.8.0
 
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
